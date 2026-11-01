@@ -1,0 +1,79 @@
+# Temporary: compares the same two Linux jobs from test.yml on GitHub and Blacksmith runners.
+# Lives only on this fork. Runs only on a push to the `speedtest` branch.
+name: Blacksmith speed test
+
+on:
+  push:
+    branches: [speedtest]
+
+env:
+  BUN_VERSION: '1.4.2'
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, blacksmith-4vcpu-ubuntu-2404]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - name: Runner facts
+        run: |
+          grep PRETTY_NAME /etc/os-release
+          echo "vcpu=$(nproc)"
+          free -h | grep Mem
+          grep -m1 'model name' /proc/cpuinfo
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate
+        run: bun run validate --only cli-import-boundary,package-edges,generated-files,merge-sweep-contract,type-check,lint,mock-modules,format
+
+  core-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, blacksmith-4vcpu-ubuntu-2404]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - name: Runner facts
+        run: |
+          grep PRETTY_NAME /etc/os-release
+          echo "vcpu=$(nproc)"
+          free -h | grep Mem
+          grep -m1 'model name' /proc/cpuinfo
+
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          BUN_INSTALL_CACHE_DIR: ${{ runner.temp }}/bun-install-cache
+
+      - name: Validate (Linux)
+        env:
+          ARCHON_TEST_PART: 1/1
+        run: bun run validate --only core-tests
