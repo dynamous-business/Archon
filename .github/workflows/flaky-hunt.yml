@@ -1,0 +1,39 @@
+name: flaky-hunt
+
+# Twenty identical runs of the Linux cli-tests shard 1/2 at d0400156 (the dev head just
+# before #5247 fixed the capture-ownership flake). Same steps as that commit's test.yml.
+on:
+  workflow_dispatch:
+  push:
+    branches: [flaky-hunt]
+
+env:
+  BUN_VERSION: '1.4.2'
+
+jobs:
+  cli-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        copy: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    name: cli-tests 1/2 (copy ${{ matrix.copy }})
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate (Linux)
+        env:
+          ARCHON_TEST_PART: 1/2
+        run: bun run validate --only cli-tests
