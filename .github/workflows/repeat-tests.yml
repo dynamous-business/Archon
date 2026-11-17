@@ -1,0 +1,49 @@
+name: repeat-tests
+
+# Twenty identical copies of the Windows package-tests 1/2 shard at 44ec667, the dev head
+# just before 3215658 ("Flaky Windows CLI and identity tests are deleted, shrunk or given
+# room"). Same steps as that commit's test.yml `test-windows` job.
+on:
+  workflow_dispatch:
+  push:
+    branches: [repeat-tests]
+
+env:
+  BUN_VERSION: '1.4.2'
+
+jobs:
+  package-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        copy: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    name: package-tests 1/2 (copy ${{ matrix.copy }})
+    runs-on: blacksmith-2vcpu-windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          BUN_INSTALL_CACHE_DIR: ${{ runner.temp }}/bun-install-cache
+
+      - name: Warm uv
+        run: uv run python -c "print('uv warm')"
+
+      - name: Validate
+        env:
+          ARCHON_TEST_PART: 1/2
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+        run: |
+          $env:PATH = "C:\Program Files\Git\mingw64\bin;$env:PATH"
+          bun run validate --only package-tests
